@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Test Brainstorming Sockets</title>
+</head>
+<body>
+	<div id="defaultTopicSpace"></div>
+	<div id="defaultTopicText"></div>
+	<div id="synonymTopicSpace"></div>
+	<div id="savedImageSpace"></div>
+	<div id="synonymTopicText"></div>
+	<script src="https://d3js.org/d3.v4.js"></script>
+	<script src="https://d3js.org/d3-selection-multi.v0.4.min.js"></script>
+	<style>
+		#savedImageSpace{
+			position:absolute;
+			top:100px;
+			height:100px;
+		}
+		#synonymTopicSpace{
+			position: absolute;
+			top:500px;
+		}
+		#defaultTopicSpace{
+
+		}
+		#synonymTopicText{
+			position:absolute;
+			top:500px;
+
+		}
+		p{
+			font-size: 1em;
+		}
+		.image{
+			width:100%;
+			height:100%;
+		}
+		.savedImage{
+			width:100px;
+			height:100px;
+		}
+	</style>
+	<script>
+		var response;
+		var defaultImages = [];
+		var synonymURLs = [];
+		var papersObject= [];
+		var defaultCount=0;
+		var synonymCount =0;
+		var socket = new WebSocket("ws://" + window.location.hostname + ":3000");
+		var topics;
+		var topicObject;
+		socket.onmessage = function(event){
+			response = JSON.parse(event.data);
+			topics = response.topicGroup;
+			topicObject = response.topicObject;
+			if(response.type === "default"){
+				response.message.forEach(function(url,index){
+                    defaultImages.push({"url":url,"topics":topics,"topicObject":topicObject});
+					//uniq(defaultURLs);
+				})
+			}else if(response.type==="synonym"){
+				response.message.forEach(function(url,index){
+					synonymURLs.push({"url":url,"topics":topics,"topicObject":topicObject});
+                    //uniq(synonymURLs);
+				})
+			}else if(response.type==="documents"){
+                    papersObject.push({"data":JSON.parse(response.message),"topics":JSON.parse(response.topicGroup)});
+			}
+		}
+
+        window.setInterval(function () {
+            if(defaultImages.length>defaultCount){
+            	renderImage(defaultImages,defaultCount,"default");
+            	defaultCount++;
+            }
+            if(synonymURLs.length>synonymCount){
+            	renderImage(synonymURLs,synonymCount,"synonym",topics);
+            	synonymCount++;
+            }
+        }, 6000);
+
+		function renderImage(image,count,type) {
+            var div;
+            var textDiv;
+            var url = image[count].url;
+            var topics = image[count].topics;
+            //Set image sizes
+            var percentageSize = (20/100) * window.innerWidth;
+            if (type === "default") {
+                div = d3.select("#defaultTopicSpace");
+                textDiv = d3.select("#defaultTopicText");
+            } else if (type === "synonym") {
+                div = d3.select("#synonymTopicSpace");
+            	textDiv = d3.select("#synonymTopicText");
+        	}
+			//var url = urls[count];
+			console.log(url);
+			var imageDiv = div.append("div")
+				.attrs({
+					"id":"div-"+ type + "-" + count
+				})
+				.styles({
+					"width":percentageSize + "px",
+					"height":percentageSize + "px"
+				});
+			textDiv.selectAll("p").remove();
+        	textDiv.selectAll("p")
+				.data(topics)
+				.enter()
+				.append("p")
+				.attrs({
+				    class:function(d){ return d.split(" ")[0]}
+				})
+                .styles({
+                    "font-size": percentageSize/250 + "em",
+                })
+				.html(function(d,i){
+				    return d;});
+        	if(type === "synonym"){
+                textDiv.select("."+image[count].topicObject.parents.link[0].split(" ")[0])
+					.styles({
+					    "color":"red"
+					})
+					.html(image[count].topicObject.parents.link[0] + " ( " + image[count].topicObject.parents.link[1] + ")" )
+				textDiv.styles({
+                    "position":"absolute",
+					"top":percentageSize + 500 + "px"
+				})
+                imageDiv.append("img")
+                    .attrs({
+                        "src": url,
+                        "alt":"Image not Found",
+                        "class":"image",
+                        "id":"img-"+count
+                    });
+                d3.select("#div-"+ type + "-" + count)
+                    .styles({
+                        "position":"absolute",
+                        "top":(percentageSize) + "px",
+                        "left":"0px"
+                    })
+                    .transition()
+                    .duration(16000)
+                    .styles({
+                        "left": (window.innerWidth) - percentageSize +"px",
+                    })
+                    .on("end", function(d){
+                        this.remove();
+                    });
+			}else{
+                imageDiv.append("img")
+                    .attrs({
+                        "src": url,
+                        "alt":"Image not Found",
+                        "class":"image",
+                        "id":"img-"+count
+                    });
+                d3.select("#div-"+ type + "-" + count)
+                    .styles({
+                        "position":"absolute",
+                        "top":0 + "px",
+                        "left":"0px"
+                    })
+                    .transition()
+                    .duration(16000)
+                    .styles({
+                        "left": (window.innerWidth) - percentageSize +"px",
+                    })
+                    .on("end", function(d){
+                        this.remove();
+                    });
+			}
+            d3.select("#savedImageSpace")
+                .styles({
+                    "top": window.innerHeight - percentageSize + "px"
+                })
+			d3.select("#div-"+ type + "-" + count).on('click',function(){
+					d3.select("#savedImageSpace")
+						.styles({
+							"width":window.innerWidth
+						})
+						.append("div")
+						.attrs({
+							"id":"savedImage"+count
+						})
+                        .styles({
+                            "float":"left"
+                        })
+						.append("img")
+						.attrs({
+							"src": this.children[0].src,
+							"alt":"Image not Found",
+							"class":"savedImage",
+							//"id":"img-"+count
+						})
+						.styles({
+						    "width": percentageSize/3 + "px",
+							"height": percentageSize/3 + "px"
+						})
+						.on("mouseover",function(){
+					  	 d3.select(this)
+					  	 	.transition()
+					  	 	.duration(750)
+					  	 	.styles({
+					  	 		"width":percentageSize + "px",
+					  	 		"height":percentageSize + "px"
+					  	 	})
+					  	})
+						.on("mouseout",function(){
+					  	 d3.select(this)
+					  	 	.transition()
+					  	 	.duration(750)
+					  	 	.styles({
+                                "width": percentageSize/3 + "px",
+                                "height": percentageSize/3 + "px"
+					  	 	})
+					  })
+				})
+		}
+
+        function uniq(a) {
+            var prims = {"boolean":{}, "number":{}, "string":{}}, objs = [];
+
+            return a.filter(function(item) {
+                var type = typeof item;
+                if(type in prims)
+                    return prims[type].hasOwnProperty(item) ? false : (prims[type][item] = true);
+                else
+                    return objs.indexOf(item) >= 0 ? false : objs.push(item);
+            });
+        }
+
+	</script>
+</body>
+</html>

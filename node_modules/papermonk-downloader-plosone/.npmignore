@@ -1,0 +1,8 @@
+# don't track other node modules
+node_modules/
+
+# also ignore npm errors
+npm-debug.log
+
+# ignore temporary files leftover from vim
+.*.sw*

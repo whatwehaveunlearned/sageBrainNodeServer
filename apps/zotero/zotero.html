@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://code.getmdl.io/1.3.0/material.indigo-pink.min.css">
+    <!-- <script src="table.js"></script> -->
+    <script defer src="https://code.getmdl.io/1.3.0/material.min.js"></script>
+	<title>Zotero Plugin</title>
+</head>
+<body>
+    <div id="paperSpace"></div>
+    <div id="zotTable"></div>
+	<div id="topicPanel"></div>
+	<div id="savedPaperSpace"></div>
+	<script src="https://d3js.org/d3.v4.js"></script>
+	<script src="https://d3js.org/d3-selection-multi.v0.4.min.js"></script>
+	<style>
+		#savedPaperSpace{
+			position:absolute;
+			top:100px;
+			height:100px;
+		}
+		.image{
+			width:100%;
+			height:100%;
+		}
+		.savedImage{
+			width:100px;
+			height:100px;
+		}
+		/* Style the lines by removing the fill and applying a stroke */
+		.line {
+			fill: none;
+			stroke: #ffab00;
+			stroke-width: 3;
+		}
+
+		/* Style the dots by assigning a fill and stroke */
+		.dot {
+			fill: #ffab00;
+			stroke: #fff;
+		}
+
+		.bars{
+			fill: #ffab00;
+			stroke: #fff;
+		}
+
+		.table_topics{
+			display: flex;
+    		justify-content: center;
+		}
+		
+		.topic_card{
+			overflow: visible;
+			margin: 0.2em;
+		}
+
+		.topic_card_title{
+			justify-content: center;
+		}
+
+		.topic_card_body{
+			padding: 1em;
+			align-items: center;
+			/* overflow:visible; */
+		}
+
+		.circles{
+			fill: #ffab00;
+			fill-opacity: 0.3;
+		}
+
+
+	</style>
+	<script>
+		var response;
+		var responseType;
+		var topicGroupPapersObject= [];
+		var topicGroupPapersCount =0;
+		var socket = new WebSocket("ws://" + window.location.hostname + ":3000");
+        var topics;
+        
+        function table(table_head,table_body,type){
+                var dataTable = d3.select("#zotTable").append('table')
+                    .attrs({
+                        'id': 'collectionTable',
+                        'class': "mdl-data-table mdl-js-data-table mdl-data-table--selectable mdl-shadow--2dp"
+                    });
+                var tableHeadRow = dataTable.append('thead').append('tr')
+                //Create a row per Element
+                for (let i=0;i<table_head.length;i++){
+                    tableHeadRow.append('th')
+                        .attrs({
+                            'class': "mdl-data-table__cell--non-numeric"
+                        })
+                        .html(table_head[i])
+                }
+                
+
+                var tableBody = dataTable.append('tbody')
+				
+				if (type==="collections"){
+					//Create a row per Element
+					for (let i=0;i<table_body.length;i++){
+						let cell = tableBody.append('tr')
+							.append('td')
+							.attrs({
+								'id':table_body[i].data.key,
+								'class': "mdl-data-table__cell--non-numeric"
+							})
+						cell.html(table_body[i].data.name)
+						cell.on("click", mouseClick);
+					}
+					
+					function mouseClick(){
+						console.log(this)
+						let message = {
+							'msg':this.id,
+							'type':'collections'
+						}
+						socket.send(JSON.stringify(message))
+					}
+
+				} else if(type==="authors"){
+					
+					//Create a row per Element
+					author_names = Object.keys(table_body['Author'])
+					for (let i=0;i<author_names.length;i++){
+						let row = tableBody.append('tr');
+							
+						row.append('td')
+							.attrs({
+								'id':table_body['Author'][author_names[i]],
+								'class': "mdl-data-table__cell--non-numeric"
+							})
+							.html(table_body['Author'][author_names[i]])
+
+						row.append('td')
+							.attrs({
+								'id':table_body['Author'][author_names[i]] + '_Citations',
+								'class': "mdl-data-table__cell--non-numeric"
+							})
+							.html(table_body['Citations'][author_names[i]])
+
+						row.append('td')
+							.attrs({
+								'id':table_body['Author'][author_names[i]] + '_Papers_in_collection',
+								'class': "mdl-data-table__cell--non-numeric"
+							})
+							.html(table_body['Papers_in_collection'][author_names[i]])
+						
+						row.on("click", mouseClick);
+					}
+					
+					function mouseClick(){
+						console.log(this)
+						let message = {
+							'msg':this.id,
+							'type':'collections'
+						}
+						socket.send(JSON.stringify(message))
+					}
+				
+				}else{
+					//Create a row per Element
+					for (let i=0;i<table_body.length;i++){
+						let cell = tableBody.append('tr')
+							.append('td')
+							.attrs({
+								'id':table_body[i].pdf_file,
+								'class': "mdl-data-table__cell--non-numeric"
+							})
+						cell.html(table_body[i].name)
+						cell.on("click", mouseClick);
+					}
+
+					function mouseClick(){
+						console.log(this)
+						let message = {
+							'msg':this.id,
+							'type':'items'
+						}
+						socket.send(JSON.stringify(message))
+                	}
+
+				}
+		}
+		
+		function lineChart(data){
+			console.log('line')
+			//Convert dictionary to array for d3
+			var data = d3.entries(data);
+			// 2. Use the margin convention practice 
+			var margin = {top: 50, right: 50, bottom: 50, left: 50}
+			, width = window.innerWidth - margin.left - margin.right // Use the window's width 
+			, height = window.innerHeight - margin.top - margin.bottom; // Use the window's height
+
+			// The number of datapoints
+			allValues = []
+			allDates = []
+			data.forEach(element => {
+				element.key = new Date(element.key, 0, 1, 0, 0, 0, 0)
+				allValues.push(element.value)
+				allDates.push(element.key)
+			});
+			var n = 21;
+
+			// 5. X scale will use the index of our data
+			var xScale = d3.scaleTime()
+				.domain([d3.min(allDates), d3.max(allDates)]) // input
+				.range([0, width]); // output
+
+			// 6. Y scale will use the randomly generate number 
+			var yScale = d3.scaleLinear()
+				.domain([0, d3.max(allValues)]) // input 
+				.range([height, 0]); // output
+
+			// 7. d3's line generator
+			var line = d3.line()
+				.x(function(d, i) { return xScale(d.key); }) // set the x values for the line generator
+				.y(function(d) { return yScale(d.value); }) // set the y values for the line generator 
+				.curve(d3.curveMonotoneX) // apply smoothing to the line
+
+
+			// 1. Add the SVG to the page and employ #2
+			var svg = d3.select("body").append("svg")
+				.attr("width", width + margin.left + margin.right)
+				.attr("height", height + margin.top + margin.bottom)
+			.append("g")
+				.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+			// 3. Call the x axis in a group tag
+			svg.append("g")
+				.attr("class", "x axis")
+				.attr("transform", "translate(0," + height + ")")
+				.call(d3.axisBottom(xScale)); // Create an axis component with d3.axisBottom
+
+			// 4. Call the y axis in a group tag
+			svg.append("g")
+				.attr("class", "y axis")
+				.call(d3.axisLeft(yScale)); // Create an axis component with d3.axisLeft
+
+			// 9. Append the path, bind the data, and call the line generator 
+			svg.append("path")
+				.datum(data) // 10. Binds data to the line 
+				.attr("class", "line") // Assign a class for styling 
+				.attr("d", line); // 11. Calls the line generator 
+
+			// 12. Appends a circle for each datapoint 
+			svg.selectAll(".dot")
+				.data(data)
+			.enter().append("circle") // Uses the enter().append() method
+				.attr("class", "dot") // Assign a class for styling
+				.attr("cx", function(d, i) { 
+					return xScale(d.key) })
+				.attr("cy", function(d) { 
+					return yScale(d.value) })
+				.attr("r", 5)
+				.attr("fill-opacity",function(d, i) { })
+		}
+
+		function barChart(data){
+			console.log('line')
+			//Convert dictionary to array for d3
+			var data = d3.entries(data);
+			// 2. Use the margin convention practice 
+			var margin = {top: 50, right: 50, bottom: 50, left: 50}
+			, width = window.innerWidth - margin.left - margin.right // Use the window's width 
+			, height = window.innerHeight/2 - margin.top - margin.bottom; // Use the window's height/2
+
+			// The number of datapoints
+			allValues = []
+			allDates = []
+			data.forEach(element => {
+				element.key = new Date(element.key, 0, 1, 0, 0, 0, 0)
+				allValues.push(parseInt(element.value))
+				allDates.push(element.key)
+			});
+			num_years = ( d3.max(allDates).getFullYear() + 1 ) - d3.min(allDates).getFullYear()
+			extra_year = new Date( ( d3.max(allDates).getFullYear() + 1 ) ,0, 1, 0, 0, 0, 0) //1 year + is needed for viz
+
+			// 5. X scale will use the index of our data
+			var xScale = d3.scaleTime()
+				.domain([d3.min(allDates), extra_year]) 
+				.range([0, width]); // output
+
+			// 6. Y scale will use the randomly generate number 
+			var yScale = d3.scaleLinear()
+				.domain([0, d3.max(allValues)])
+				.range([height, 0]);
+
+
+			// 1. Add the SVG to the page and employ #2
+			var svg = d3.select("body").append("svg")
+				.attr("width", width + margin.left + margin.right)
+				.attr("height", height + margin.top + margin.bottom)
+			.append("g")
+				.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+			// 3. Call the x axis in a group tag
+			svg.append("g")
+				.attr("class", "x axis")
+				.attr("transform", "translate(0," + height + ")")
+				.call(d3.axisBottom(xScale)) // Create an axis component with d3.axisBottom
+				.selectAll("text")
+				.style("text-anchor", "end")
+      			.attr("dx", "-.8em")
+      			.attr("dy", function(d,i) { 
+					if (num_years === 0) {
+						return width/2 + "px";
+					}else{
+						return (width/num_years)/2 + "px"
+					}
+				})
+	  			.attr("transform", "rotate(-90)" )
+
+			// 4. Call the y axis in a group tag
+			svg.append("g")
+				.attr("class", "y axis")
+				.call(d3.axisLeft(yScale)
+						.tickFormat(function(e){
+							if(Math.floor(e) === e)
+							{
+								return e;
+							}
+						})
+				); // Create an axis component with d3.axisLeft
+
+			// 12. Appends a circle for each datapoint 
+			svg.append("g")
+				.attr("class", "bars")
+				.selectAll(".bar")
+				.data(data)
+				.enter().append("rect") // Uses the enter().append() method
+					.attr("class", "bar") // Assign a class for styling
+					.attr("x", function(d, i) { 
+						return xScale(d.key) + 1 })
+					.attr("y", function(d) { 
+						return yScale(d.value) })
+					.attr("width", function(d,i) { 
+						if (num_years === 0) {
+							return width;
+						}else{
+							return (width/num_years) - 1
+						}
+					})
+					.attr("height", function(d) { return height - yScale(d.value); });
+		}
+
+		function topicsCards(data){
+			// Delete first element that is only the position
+			data.order.shift()
+			all_topic_keys = data.order
+			let table_topics = d3.select('body').append('div')
+							.attrs({
+							'class':'table_topics'
+							})
+			for (let i=0; i< all_topic_keys.length; i++){
+				let topic_card = table_topics.append('div')
+							.attrs({
+								'class':'topic_card demo-card-square mdl-card mdl-shadow--2dp',
+								'id':'topic_' + all_topic_keys[i]
+							});
+				let topic_card_title = topic_card.append('div')
+							.attrs({
+								'class':"topic_card_title mdl-card__title mdl-card--expand"
+							})
+							.text('topic ' + all_topic_keys[i])
+				
+				let topic_card_body = topic_card.append('div')
+							.attrs({
+								'class':"topic_card_body mdl-card__actions"
+							})
+							 					
+				this_topic_keys = Object.keys(data.topics[all_topic_keys[i]])
+				for (let j=0; j < this_topic_keys.length; j++){
+					topic_card_body.append('div')
+						.attrs({
+							'class':'topic'
+						})
+						.text(data.topics[all_topic_keys[i]][this_topic_keys[j]])
+				}
+			}
+		}
+
+		function scatterPlot(data){
+			var margin = {top: 50, right: 50, bottom: 50, left: 50}
+			, width = window.innerWidth - margin.left - margin.right // Use the window's width 
+			, height = window.innerHeight/2 - margin.top - margin.bottom; // Use the window's height/2
+
+			// Define the div for the tooltip
+			var div = d3.select("body").append("div")	
+				.attr("class", "tooltip")				
+				.style("opacity", 0);
+
+			//Prepare Data
+			xValues = d3.entries(collection_words['x2D'])
+			yValues = d3.entries(collection_words['y2D'])
+			words = d3.entries(collection_words['word'])
+			weights = d3.entries(collection_words['C'])
+
+
+			// set the scales
+			var xScale = d3.scaleLinear().range([0, width]);
+			var yScale = d3.scaleLinear().range([height, 0]);
+			var circleOpacityScale = d3.scaleLinear().range([0.1, 1]);
+			
+			//Prepare domains
+			xScale.domain([d3.min(xValues, function(d) { return d.value; }), d3.max(xValues, function(d) { return d.value; })])
+			yScale.domain([d3.min(yValues, function(d) { return d.value; }), d3.max(yValues, function(d) { return d.value; })])
+			circleOpacityScale.domain([d3.min(weights, function(d) { return d.value; }), d3.max(weights, function(d) { return d.value; })])
+
+		// 1. Add the SVG to the page and employ #2
+		var svg = d3.select("body").append("svg")
+				.attr("width", width + margin.left + margin.right)
+				.attr("height", height + margin.top + margin.bottom)
+			.append("g")
+				.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+			// 3. Call the x axis in a group tag
+			svg.append("g")
+				.attr("class", "x axis")
+				.attr("transform", "translate(0," + height + ")")
+				.call(d3.axisBottom(xScale)) // Create an axis component with d3.axisBottom
+				.selectAll("text")
+				.style("text-anchor", "end")
+      			.attr("dx", "-.8em")
+      			.attr("dy", function(d,i) { 
+					// if (num_years === 0) {
+						return width/2 + "px";
+					// }else{
+						// return (width/num_years)/2 + "px"
+					})
+	  			.attr("transform", "rotate(-90)" )
+
+			// 4. Call the y axis in a group tag
+			svg.append("g")
+				.attr("class", "y axis")
+				.call(d3.axisLeft(yScale)
+						.tickFormat(function(e){
+							if(Math.floor(e) === e)
+							{
+								return e;
+							}
+						})
+				); // Create an axis component with d3.axisLeft
+
+			// 12. Appends a circle for each datapoint 
+			svg.append("g")
+				.attr("class", "circles")
+				.selectAll(".bar")
+				.data(words)
+				.enter().append("circle") // Uses the enter().append() method
+					.attr("class", "circle") // Assign a class for styling
+					.attr("cx", function(d,i) { 
+						return xScale(xValues[i].value)})
+					.attr("cy", function(d,i) { 
+						return yScale(yValues[i].value) })
+					.attr("r", function(d) { return 5; })
+					.attr("fill-opacity",function(d,i) { return circleOpacityScale(weights[i].value); })
+					.on("mouseover", function(d) {		
+						div.transition()		
+							.duration(200)		
+							.style("opacity", .9);		
+						div	.html(d.value)	
+							.style("left", (d3.event.pageX) + "px")		
+							.style("top", (d3.event.pageY - 28) + "px");	
+						})			
+		}
+
+		socket.onmessage = function(event){
+			response = JSON.parse(event.data);
+			if(response.type=='collection_topics'){
+				collection_words = JSON.parse(response.message.doc_topics.words)
+				topicsCards(response.message.doc_topics)
+				barChart(response.message.years)
+				table(['Name','Citations','Papers In Session'],response.message.authors,'authors')
+				scatterPlot(collection_words)
+			}
+			else{
+				d3.selectAll('#collectionTable').remove()
+				console.log(response)
+				table(['Name'],response.message,response.type)
+			}
+            
+		}
+	</script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+{
+  "name": "brainstorming",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "agon",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.14.1",
+    "file-api": "^0.10.4",
+    "filereader": "^0.10.3",
+    "form-data": "^2.3.2",
+    "google-image-suggestions": "^1.1.0",
+    "google-scholar": "^1.2.5",
+    "images-scraper": "^2.0.11",
+    "lda": "^0.1.9",
+    "npm": "^6.4.1",
+    "papermonk": "0.0.3",
+    "pdf2json": "^1.1.7",
+    "query-string": "^6.1.0",
+    "request": "^2.79.0",
+    "textsimilarity": "0.0.1",
+    "thesaurus": "0.0.0",
+    "uid-safe": "^2.1.4",
+    "ws": "^2.1.0",
+    "xmlhttprequest": "^1.8.0",
+    "zerorpc": "^0.9.7"
+  }
+}

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Test Brainstorming Sockets</title>
+</head>
+<body>
+	<div id="paperSpace"></div>
+	<div id="topicPanel"></div>
+	<div id="savedPaperSpace"></div>
+	<script src="https://d3js.org/d3.v4.js"></script>
+	<script src="https://d3js.org/d3-selection-multi.v0.4.min.js"></script>
+	<style>
+		#savedPaperSpace{
+			position:absolute;
+			top:100px;
+			height:100px;
+		}
+		.image{
+			width:100%;
+			height:100%;
+		}
+		.savedImage{
+			width:100px;
+			height:100px;
+		}
+	</style>
+	<script>
+		var response;
+		var responseType;
+		var topicGroupPapersObject= [];
+		var topicGroupPapersCount =0;
+		var socket = new WebSocket("ws://" + window.location.hostname + ":3000");
+		var topics;
+		socket.onmessage = function(event){
+			response = JSON.parse(event.data);
+			if(response.type==="documents"){
+                topicGroupPapersObject.push({"data":JSON.parse(response.message),"type":response.type});
+			}
+		}
+
+        window.setInterval(function () {
+            if(topicGroupPapersObject.length > topicGroupPapersCount){
+            	renderPapers(topicGroupPapersObject[topicGroupPapersCount]);
+                topicGroupPapersCount++;
+            }
+        }, 20000);
+
+		function renderPapers(paper){
+			var div = d3.select("#paperSpace");
+            var topicPanel = d3.select("#topicPanel");
+			var title = paper.data.title;
+			var authors = paper.data.authors.toString();
+			var description = paper.data.description;
+			var citations = paper.data.citedCount;
+			var type = paper.type;
+			var topicGroup = paper.data.topicGroup;
+
+			var paper = div.append("div")
+				.attrs({
+					"id":"div-"+ type + "-" + topicGroupPapersCount
+				})
+				.styles({
+					"width":"500px",
+					"height":"300px"
+				});
+			paper.append("p")
+				.html(title);
+            paper.append("p")
+                .html(authors);
+            paper.append("p")
+                .html("citations: " + citations);
+			paper.append("p")
+				 .html(description);
+
+			d3.select("#div-"+ type + "-" + topicGroupPapersCount)
+				.styles({
+					"position":"absolute",
+					"top":"0px",
+					"left":"0px"
+				})
+				.transition()
+				.duration(12000)
+				.styles({
+					"left": (window.innerWidth/2)-200+"px",
+				})
+				.transition()
+				.duration(12000)
+				.styles({
+					"left": (window.innerWidth)-200+"px",
+				})
+			d3.select("#div-"+ type + "-" + topicGroupPapersCount).on('click',function(){
+					d3.select("#savedImageSpace")
+						.styles({
+							"width":window.innerWidth
+						})
+						.append("div")
+						.attrs({
+							"id":"savedImage"+count
+						})
+                        .styles({
+                            "float":"left"
+                        })
+						.append("img")
+						.attrs({
+							"src": this.children[1].src,
+							"alt":"Image not Found",
+							"class":"savedImage",
+							//"id":"img-"+count
+						})
+						.on("mouseover",function(){
+					  	 d3.select(this)
+					  	 	.transition()
+					  	 	.duration(750)
+					  	 	.styles({
+					  	 		"width":"300px",
+					  	 		"height":"300px"
+					  	 	})
+					  	})
+						.on("mouseout",function(){
+					  	 d3.select(this)
+					  	 	.transition()
+					  	 	.duration(750)
+					  	 	.styles({
+					  	 		"width":"100px",
+					  	 		"height":"100px"
+					  	 	})
+					  })
+				})
+		}
+	</script>
+</body>
+</html>

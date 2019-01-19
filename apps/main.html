@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Test Brainstorming Sockets</title>
+</head>
+<body>
+	<div id="defaultTopicSpace"></div>
+	<div id="synonymTopicSpace"></div>
+	<div id="savedImageSpace"></div>
+	<script src="https://d3js.org/d3.v4.js"></script>
+	<script src="https://d3js.org/d3-selection-multi.v0.4.min.js"></script>
+	<style>
+		#savedImageSpace{
+			position:absolute;
+			top:100px;
+			height:100px;
+		}
+		#synonymTopicSpace{
+			position: absolute;
+			top:500px;
+		}
+		.image{
+			width:100%;
+			height:100%;
+		}
+		.savedImage{
+			width:100px;
+			height:100px;
+		}
+	</style>
+	<script>
+		var response;
+		var defaultURLs=[];
+		var synonymURLs = [];
+		var defaultCount=0;
+		var synonymCount =0;
+		var socket = new WebSocket("ws://localhost:3000");
+		var topics;
+		socket.onmessage = function(event){
+			response = JSON.parse(event.data);
+			topics = response.topicGroup;
+			if(response.type === "default"){
+				JSON.parse(response.message).forEach(function(url,index){
+					defaultURLs.push(url);
+				})
+			}else if(response.type==="synonym"){
+				JSON.parse(response.message).forEach(function(url,index){
+					synonymURLs.push(url);
+				})
+			}
+		}
+
+        window.setInterval(function () {
+            if(defaultURLs.length>defaultCount){
+            	renderImage(defaultURLs,defaultCount,"default",topics);
+            	defaultCount++;
+            }
+            if(synonymURLs.length>synonymCount){
+            	renderImage(synonymURLs,synonymCount,"synonym",topics);
+            	synonymCount++;
+            }
+        }, 3000);
+
+		function renderImage(urls,count,type,topics){
+			var div;
+			if(type === "default")
+				div = d3.select("#defaultTopicSpace");
+			else if(type==="synonym")
+				div = d3.select("#synonymTopicSpace");
+			var url = urls[count];
+			console.log(url);
+			var image = div.append("div")
+				.attrs({
+					"id":"div-"+ type + "-" + count
+				})
+				.styles({
+					"width":"100px",
+					"height":"100px"
+				});
+			image.append("p")
+				 .html(topics);
+			image.append("img")
+				.attrs({
+					"src": url,
+					"alt":"Image not Found",
+					"class":"image",
+					"id":"img-"+count
+				})
+			d3.select("#div-"+ type + "-" + count)
+				.styles({
+					"position":"absolute",
+					"top":"0px",
+					"left":"0px"
+				})
+				.transition()
+				.duration(6000)
+				.styles({
+					"left": (window.innerWidth/2)-200+"px",
+					"width":"400px",
+					"height":"400px"
+				})
+				.transition()
+				.duration(6000)
+				.styles({
+					"left": (window.innerWidth)-200+"px",
+					"width":"100px",
+					"height":"100px"
+				})
+			d3.select("#div-"+ type + "-" + count).on('click',function(){
+					d3.select("#savedImageSpace")
+						.styles({
+							"width":window.innerWidth
+						})
+						.append("div")
+						.attrs({
+							"id":"savedImage"+count
+						})
+                        .styles({
+                            "float":"left"
+                        })
+						.append("img")
+						.attrs({
+							"src": this.children[1].src,
+							"alt":"Image not Found",
+							"class":"savedImage",
+							//"id":"img-"+count
+						})
+						.on("mouseover",function(){
+					  	 d3.select(this)
+					  	 	.transition()
+					  	 	.duration(750)
+					  	 	.styles({
+					  	 		"width":"300px",
+					  	 		"height":"300px"
+					  	 	})
+					  	})
+						.on("mouseout",function(){
+					  	 d3.select(this)
+					  	 	.transition()
+					  	 	.duration(750)
+					  	 	.styles({
+					  	 		"width":"100px",
+					  	 		"height":"100px"
+					  	 	})
+					  })
+				})
+		}
+	</script>
+</body>
+</html>
